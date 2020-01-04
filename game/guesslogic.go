@@ -1,12 +1,9 @@
-package game
+package appmain
 
 import (
+	"github.com/hudgit2019/leafboot/appmain/gamelogic"
 	"github.com/hudgit2019/leafboot/base"
-	"github.com/hudgit2019/leafboot/gamelogic"
 	"github.com/hudgit2019/leafboot/msg"
-
-	"guessgame/model"
-	guessmsg "guessgame/msg"
 
 	"github.com/name5566/leaf/gate"
 )
@@ -25,8 +22,8 @@ type GuessLogic struct {
 	gamelogic.FactoryGameLogic
 }
 
-func (g *GuessLogic) CreateClientPlayer(addr string) base.IPlayerNode {
-	return &model.GuessPlayerNode{}
+func (g *GuessLogic) CreateClientPlayer() base.IPlayerNode {
+	return &GuessPlayerNode{}
 }
 
 //AppMsgCallBack 应用层用来注册消息回调，重写方法,例如:mapMsg["LeaveTable"]= f.handleLeaveTableReq
@@ -35,11 +32,11 @@ func (g *GuessLogic) AppMsgCallBackInit(mapMsg *map[string]base.MsgHandler) {
 }
 func (g *GuessLogic) handleGuessReq(args []interface{}) {
 	a := args[1].(gate.Agent)
-	player := a.UserData().(*model.GuessPlayerNode)
+	player := a.UserData().(*GuessPlayerNode)
 	if player.Usergamestatus != PlayerstatuThinking {
 		return
 	}
-	req := args[0].(*guessmsg.GuessReq)
+	req := args[0].(*GuessReq)
 	var bValidtype = false
 	for _, v := range guesschoice {
 		if v == req.Guesstype {
@@ -59,13 +56,13 @@ func (g *GuessLogic) handleGuessReq(args []interface{}) {
 	player.Usergamestatus = PlayerstatuWaitOtherGuess
 	player.Guesstype = req.Guesstype
 	player.KillTimer(base.Playertimer_checkplay)
-	gussres := guessmsg.GuessRes{
+	gussres := GuessRes{
 		Guesstype: req.Guesstype,
 	}
 	base.SendRspMsg(player, gussres)
 	tableintf, _ := g.GetTable(player.Usertableid)
 	table := tableintf.(*base.GameTable)
-	var overguesscount int = 0
+	var overguesscount int32 = 0
 	for _, v := range table.TablePlayers {
 		if v.(*base.ClientNode).Usergamestatus == PlayerstatuWaitOtherGuess {
 			overguesscount++
@@ -73,12 +70,12 @@ func (g *GuessLogic) handleGuessReq(args []interface{}) {
 	}
 	//game over
 	if overguesscount == table.ReadyPlayers {
-		gussresult := guessmsg.GuessResult{}
+		gussresult := GuessResult{}
 		for i, v := range table.TablePlayers {
 			//g.SavePlayerGameCoin(v, 100, 113),just sample,you should fill your own data to struct!
 			g.SavePlayerGameEnd(v, base.Userplaygamedata{}, 112)
 			g.WriteTableRoundLog(&msg.Playgamelog{})
-			gussresult.Guesstype[i] = v.(*model.GuessPlayerNode).Guesstype
+			gussresult.Guesstype[i] = v.(*GuessPlayerNode).Guesstype
 			gussresult.Socres[i] = 1000
 		}
 
@@ -125,7 +122,7 @@ func (g *GuessLogic) CallBackGameStart(table base.ITable) {
 	for _, playerintf := range tableitem.TablePlayers {
 		player := playerintf.(*base.ClientNode)
 		player.Usergamestatus = PlayerstatuThinking
-		guessstart := guessmsg.GuessStartNotice{}
+		guessstart := GuessStartNotice{}
 		base.SendRspMsg(player, guessstart)
 		player.SetTimer(base.Playertimer_checkplay, 10)
 	}
